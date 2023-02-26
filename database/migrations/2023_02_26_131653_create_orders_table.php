@@ -12,8 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('orders', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+            $table->uuid()->primary();
+            $table->string('name');
+            $table->foreignId('course_id');
+            $table->integer('gross_amount');
+            $table->string('status')->default("BOOKED");
         });
     }
 
