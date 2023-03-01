@@ -13,7 +13,7 @@ class ApiResponse
         $message = isset($response['message']) ? $response['message'] : null;
 
         return response()->json([
-            "status"    => "Succesed",
+            "status"    => "succes",
             "message"   => $message,
             "data"      => $data
         ]);

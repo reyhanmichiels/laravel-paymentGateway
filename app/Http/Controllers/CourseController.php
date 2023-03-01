@@ -14,11 +14,12 @@ class CourseController extends Controller
     public function buy(Course $course, Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'name' => 'string|required'
+            'name' => 'string|required',
+            'email' => 'email'
         ]);
 
         if ($validate->fails()) {
-            return ApiResponse::error($validate->errors());
+            return ApiResponse::error($validate->errors(), 409);
         }
 
         try {
@@ -26,6 +27,7 @@ class CourseController extends Controller
 
             $order = new Order;
             $order->name = $request->name;
+            $order->email = $request->email;
             $order->course_id = $course->id;
             $order->gross_amount = $course->price;
             $order->save();
@@ -36,20 +38,17 @@ class CourseController extends Controller
             ];
 
             $response = PaymentController::checkout($data);
-            return $response;
-
-            // if ($response->status() != 201) {
-            //     return ApiResponse::error($response['status_message']);
-            // } else {
-            //     return ApiResponse::success($response['va_numbers']);
-            // }
-
-            // return response()->json($response);
+            
+            
+            if ($response['status'] == 'error') {
+                return ApiResponse::error($response['data']);
+            } ;
 
             DB::commit();
+            return ApiResponse::success($response['data'], 201);
         } catch (\Exception $e) {
-            return ApiResponse::error($e->getMessage());
             DB::rollBack();
+            return ApiResponse::error($e->getMessage(), 409);
         }
     }
 }

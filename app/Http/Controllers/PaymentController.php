@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Libraries\ApiResponse;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Spatie\FlareClient\Api;
 
 class PaymentController extends Controller
@@ -14,6 +16,34 @@ class PaymentController extends Controller
      */
     public function __invoke(Request $request)
     {
+        $response = $request->all();
+
+        $signature = hash('sha512', $response['order_id'] . $response['status_code'] . $response['gross_amount'] . config('midtrans.server_key'));
+
+        if ($response['signature_key'] != $signature) {
+            return ApiResponse::error('invalid signature key', 400);
+        }
+
+        $order = Order::find($response['order_id']);
+
+        if (!$order) {
+            $order->status = "Not Found ";
+            return ApiResponse::error('order not found', 400);
+        }
+
+        if ($response['transaction_status'] == "settlement") {
+            $order->status = "PAID";
+            $order->save();
+        } else if ($response['transaction_status'] == "expire") {
+            $order->status = "CANCELED";
+            $order->save();
+        }
+
+        $data = [
+            'message' => 'succesed'
+        ];
+
+        return ApiResponse::success($data, 200);
     }
 
     public static function checkout($data)
@@ -34,11 +64,17 @@ class PaymentController extends Controller
         ]);
 
         if ($response->failed()) {
-            return ApiResponse::error("Transaction Failed");
+            return [
+                'status' => "error",
+                'data' => 'Transaction Failed'
+            ];
         }
 
         if ($response['status_code'] != 201) {
-            return ApiResponse::error($response['status_message']);
+            return [
+                'status' => "error",
+                'data' => 'Transaction Failed'
+            ];
         }
 
         $data = [
@@ -46,6 +82,9 @@ class PaymentController extends Controller
             'data' => $response['va_numbers']
         ];
 
-        return ApiResponse::success($data);
+        return [
+            'status' => 'succes',
+            'data' => $data
+        ];
     }
 }
